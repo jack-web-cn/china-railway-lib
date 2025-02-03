@@ -1,4 +1,4 @@
-import { withInit } from '../src/utils';
+import { MemoryCache, withInit } from '../src/utils';
 
 it('should run only once', async (): Promise<void> => {
   let result = 0;
@@ -14,4 +14,26 @@ it('should run only once', async (): Promise<void> => {
   await add(4);
   expect(count).toBe(1);
   expect(result).toBe(7);
+});
+
+describe(MemoryCache, (): void => {
+  it('should cache data in memory', async (): Promise<void> => {
+    jest.useFakeTimers();
+    const fetchData = jest.fn();
+    const data = new MemoryCache(fetchData, 5 * 1000);
+    expect(fetchData).not.toHaveBeenCalled();
+    await data.get();
+    expect(fetchData).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(3 * 1000);
+    await data.get();
+    expect(fetchData).toHaveBeenCalledTimes(1);
+    await data.refresh();
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    jest.advanceTimersByTime(3 * 1000);
+    await data.get();
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    jest.advanceTimersByTime(3 * 1000);
+    await data.get();
+    expect(fetchData).toHaveBeenCalledTimes(3);
+  });
 });

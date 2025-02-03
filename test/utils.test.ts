@@ -1,19 +1,16 @@
 import { MemoryCache, withInit } from '../src/utils';
 
-it('should run only once', async (): Promise<void> => {
-  let result = 0;
-  let count = 0;
-  let add = async (x: number): Promise<void> => {
-    result += x;
-  };
-  add = withInit(add, async (): Promise<void> => {
-    count += 1;
+describe(withInit, (): void => {
+  it('should run only once', async (): Promise<void> => {
+    const initialize = jest.fn();
+    let func = jest.fn();
+    func = withInit(func, initialize);
+    expect(initialize).not.toHaveBeenCalled();
+    func();
+    expect(initialize).toHaveBeenCalledTimes(1);
+    func();
+    expect(initialize).toHaveBeenCalledTimes(1);
   });
-  await add(1);
-  await add(2);
-  await add(4);
-  expect(count).toBe(1);
-  expect(result).toBe(7);
 });
 
 describe(MemoryCache, (): void => {

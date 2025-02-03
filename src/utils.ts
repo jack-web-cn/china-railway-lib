@@ -1,9 +1,11 @@
-export function withInit<T extends (...args: unknown[]) => Promise<unknown>>(
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
+export function withInit<T extends (...args: any[]) => Promise<any>>(
   func: T,
   initialize: (() => Promise<unknown>) | (() => unknown),
 ): T {
   let initialized = false;
-  return (async (...args: unknown[]): Promise<unknown> => {
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
+  return (async (...args: any[]): Promise<any> => {
     if (!initialized) {
       initialized = true;
       await initialize();

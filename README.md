@@ -19,7 +19,18 @@ pnpm add china-railway-lib
 
 ## Building
 
-This project uses `pnpm` as the package manager. To build the project, run:
+This project uses `pnpm` as the package manager.
+
+To build the project locally, you need to clone the repository and install the
+dependencies first:
+
+```bash
+git clone git@github.com:hezicyan/china-railway-lib.git
+cd china-railway-lib
+pnpm install
+```
+
+Then, you can build the project by running:
 
 ```bash
 pnpm build

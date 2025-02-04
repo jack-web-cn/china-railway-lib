@@ -12,6 +12,7 @@
     "format": "prettier --write \"*.{json,md}\"",
     "lint": "eslint \"*.ts\" \"{src,test}/**/*.ts\" --fix",
     "build": "pnpm lint && tsup",
+    "preversion": "pnpm lint",
     "prepublishOnly": "pnpm build"
   },
   "keywords": [

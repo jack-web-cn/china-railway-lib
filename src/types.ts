@@ -1,11 +1,18 @@
 import { fetch } from 'node-fetch-native';
 import { CookieJar } from 'tough-cookie';
 
+import { CachedData } from './utils';
+
 export type Fetch = typeof fetch;
 
 export interface HelperConfig {
   fetch: Fetch;
   cookieJar: CookieJar;
+  useCache<T>(
+    fetchData: (() => Promise<T>) | (() => T),
+    ttl: number,
+  ): CachedData<T>;
+  stationListUpdateInterval: number;
 }
 
 export const enum PurposeCodes {
@@ -26,7 +33,16 @@ export type TrainNumberPrefix =
   | 'Z';
 export type TrainNumberShort = `${TrainNumberPrefix}${number}`;
 
-export type Station = string;
+export interface Station {
+  name: string;
+  city: string;
+  telecode: string;
+  pinyinCode: string;
+  pinyinAcronym: string;
+  pinyinFull: string;
+}
+
+export type StationQuery = Partial<Omit<Station, 'city'>>;
 
 export const enum Accomendation {
   BUSINESS_CLASS = '商务座',
@@ -49,12 +65,18 @@ export type AllTickets = Partial<Record<Accomendation, Tickets>>;
 export interface TrainInfo {
   number: string;
   numberShort: TrainNumberShort;
-  startingStation: Station;
-  endingStation: Station;
-  departureStation: Station;
-  arrivalStation: Station;
+  startingStation: Station | string;
+  endingStation: Station | string;
+  departureStation: Station | string;
+  arrivalStation: Station | string;
   departureTime: Date;
   arrivalTime: Date;
   bookable: boolean;
   allLeftTickets: AllTickets;
+}
+
+export class StationNotFoundError extends Error {
+  constructor(query: StationQuery) {
+    super(`Station not found with given query: ${JSON.stringify(query)}`);
+  }
 }

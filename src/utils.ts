@@ -43,6 +43,10 @@ export class MemoryCache<T> extends CachedData<T> {
     super(fetchData, ttl);
   }
 
+  static create<T>(fetchData: (() => Promise<T>) | (() => T), ttl: number) {
+    return new MemoryCache(fetchData, ttl);
+  }
+
   async refresh(): Promise<void> {
     this.#data = await this.fetchData();
     this.#expireTime = Date.now() + this.ttl;

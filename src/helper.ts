@@ -8,11 +8,17 @@ import {
   HelperConfig,
   PurposeCodes,
   Station,
+  StationNotFoundError,
+  StationQuery,
   TrainInfo,
   TrainNumberShort,
 } from './types';
 import * as URLS from './urls';
-import { withInit } from './utils';
+import { CachedData, MemoryCache, withInit } from './utils';
+
+const DEFAULT_STATION_LIST_UPDATE_INTERVAL = 24 * 60 * 60 * 1000;
+
+const DEFAULT_HELPER_CONFIG = {};
 
 function appendTickets(
   allTickets: AllTickets,
@@ -66,20 +72,43 @@ function parseTrainInfo(rawTrainInfo: string, date: string): TrainInfo {
   };
 }
 
+function parseStation(rawStation: string): Station {
+  const splitList = rawStation.split('|');
+  return {
+    name: splitList[1],
+    city: splitList[7],
+    telecode: splitList[2],
+    pinyinCode: splitList[0],
+    pinyinAcronym: splitList[4],
+    pinyinFull: splitList[3],
+  };
+}
+
+function parseStationList(rawStationList: string): Station[] {
+  return rawStationList.split('@').slice(1).map(parseStation);
+}
+
 /**
  * 铁路 12306 助手。
  */
 export class RailwayHelper {
   readonly #fetch: Fetch;
+  readonly #stationList: CachedData<Station[]>;
 
   /**
-   * @param config - Helper 配置，可以指定 fetch 函数和 cookieJar
+   * @param config - Helper 配置
    */
   constructor(config?: HelperConfig) {
     this.#fetch = config?.fetch ?? makeFetchCookie(fetch, config?.cookieJar);
     this.#fetch = withInit(this.#fetch, async (): Promise<void> => {
       await this.#fetch(URLS.RAILWAY_PREFIX);
     });
+
+    const useCache = config?.useCache ?? MemoryCache.create;
+    this.#stationList = useCache(
+      this.#fetchDataStationList.bind(this),
+      config?.stationListUpdateInterval ?? DEFAULT_STATION_LIST_UPDATE_INTERVAL,
+    );
   }
 
   async #getWithParams(
@@ -90,6 +119,13 @@ export class RailwayHelper {
     url.search = new URLSearchParams(params).toString();
     const response = await this.#fetch(url.toString());
     return response;
+  }
+
+  async #fetchDataStationList(): Promise<Station[]> {
+    const response = await this.#fetch(URLS.STATION_LIST_QUERY);
+    const rawText = await response.text();
+    const rawStationList: string = rawText.match(/(?<=').*(?=')/)[0];
+    return parseStationList(rawStationList);
   }
 
   /**
@@ -113,14 +149,18 @@ export class RailwayHelper {
    */
   public async getStandardTrainList(
     date: string,
-    fromStation: Station,
-    toStation: Station,
+    fromStation: Station | string,
+    toStation: Station | string,
     purposeCodes: PurposeCodes = PurposeCodes.ADULT,
   ): Promise<TrainInfo[]> {
+    const fromStationTelecode =
+      typeof fromStation === 'string' ? fromStation : fromStation.telecode;
+    const toStationTelecode =
+      typeof toStation === 'string' ? toStation : toStation.telecode;
     const response = await this.#getWithParams(URLS.STANDARD_TRAIN_QUERY, {
       'leftTicketDTO.train_date': date,
-      'leftTicketDTO.from_station': fromStation,
-      'leftTicketDTO.to_station': toStation,
+      'leftTicketDTO.from_station': fromStationTelecode,
+      'leftTicketDTO.to_station': toStationTelecode,
       purpose_codes: purposeCodes,
     });
     const json = await response.json();
@@ -128,5 +168,51 @@ export class RailwayHelper {
       (rawTrainInfo: string): TrainInfo => parseTrainInfo(rawTrainInfo, date),
     );
     return trainInfoList;
+  }
+
+  /**
+   * 获得所有车站信息。
+   * @returns 车站列表
+   */
+  public async getStationList(): Promise<Station[]> {
+    return this.#stationList.get();
+  }
+
+  /**
+   * 查询符合条件的唯一车站。
+   * @param query - 查询条件，可以指定车站名称、电报码、拼音码、拼音首字母、拼音全拼
+   * @returns 符合条件的车站信息
+   *
+   * @throws {@link StationNotFoundError} 如果没有找到符合条件的车站
+   */
+  public async queryStation(query: StationQuery): Promise<Station> {
+    const stationList = await this.getStationList();
+    for (const station of stationList) {
+      let satisfiable = true;
+      for (const key in query) {
+        if (station[key] !== query[key]) {
+          satisfiable = false;
+          break;
+        }
+      }
+      if (satisfiable) return station;
+    }
+    throw new StationNotFoundError(query);
+  }
+
+  /**
+   * 查询某个城市内的所有车站。
+   * @param city - 城市名称
+   * @returns 该城市内的所有车站
+   */
+  public async queryStationsByCity(city: string): Promise<Station[]> {
+    const stationList = await this.getStationList();
+    const stations: Station[] = [];
+    for (const station of stationList) {
+      if (station.city === city) {
+        stations.push(station);
+      }
+    }
+    return stations;
   }
 }

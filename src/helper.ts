@@ -18,8 +18,6 @@ import { CachedData, MemoryCache, withInit } from './utils';
 
 const DEFAULT_STATION_LIST_UPDATE_INTERVAL = 24 * 60 * 60 * 1000;
 
-const DEFAULT_HELPER_CONFIG = {};
-
 function appendTickets(
   allTickets: AllTickets,
   accomendation: Accomendation,
